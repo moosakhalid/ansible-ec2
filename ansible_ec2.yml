@@ -1,0 +1,40 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name:
+      ec2_ami_find:
+        region: us-east-2
+        architecture: x86_64
+        hypervisor: xen
+        owner: amazon
+        no_result_action: fail
+        name: "amzn-ami-hvm-2017.03.0.20170401-x86_64-gp2"
+      register: ami_find
+
+    - name:
+      ec2:
+        key_name: moosa2
+        region: us-east-2
+        instance_type: t2.micro
+        image: "{{ ami_find.results[0].ami_id }}"
+        group: default
+        wait: true
+        exact_count: 9
+        count_tag:
+          Name: MoosaEC2
+        instance_tags:
+          Name: MoosaEC2
+        user_data: |
+            #!/bin/bash    
+            yum update -y
+            yum install httpd php php-mysql -y
+            service httpd start
+      register: ec2
+
+    - name:
+      add_host: hostname={{ item.public_ip }} groups=ec2_hosts
+      with_items: "{{ ec2.instances }}"
+...
